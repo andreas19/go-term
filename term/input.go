@@ -5,7 +5,6 @@ package term
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"strconv"
@@ -14,32 +13,42 @@ import (
 	"unicode/utf8"
 )
 
+// Options for Input function.
+// If ConvFunc is used it must return an error if the input value
+// cannot be converted.
 type InputOpt struct {
-	Default  interface{}
-	Echo     EchoMode
-	Limit    uint8
-	ConvFunc func(string) (interface{}, error)
+	Default  interface{}                       // optional
+	Echo     EchoMode                          // default: EchoNormal
+	Limit    uint8                             // see function GetBytes
+	ConvFunc func(string) (interface{}, error) // optional
 }
 
-var nilOpt = &InputOpt{}
-
+// Input gets input from a terminal. The in argument must be the address
+// of a variable to which the input should be assigned. If only enter is
+// typed and there is no default value or if the input cannot be converted
+// to the correct type, the prompt will be shown again.
+// It panics if stdin and stdout are not connected to a terminal or
+// if opt.Default or the return value of opt.ConvFunc are not
+// assignable to *in.
 func Input(prompt string, in interface{}, opt *InputOpt) error {
 	checkIsTerminal()
-	if opt == nil {
-		opt = nilOpt
+	if val := reflect.ValueOf(in); val.Kind() != reflect.Ptr {
+		return fmt.Errorf("type of 'in' not a pointer: %s", val.Type())
 	}
+	if opt == nil {
+		opt = &InputOpt{}
+	}
+	var b []byte
 	var s string
 	var err error
 	for {
 		fmt.Print(prompt)
-		s, err = GetString(opt.Echo, opt.Limit)
+		b, err = GetBytes(opt.Echo, opt.Limit)
 		fmt.Println()
-		if err == io.EOF {
+		if err != nil {
 			break
 		}
-		if err != nil {
-			panic(err)
-		}
+		s = string(b)
 		if s == "" {
 			if opt.Default != nil {
 				setValue(in, opt.Default)
@@ -85,6 +94,13 @@ func moveCursorUp() {
 	fmt.Print("\x1b[A")
 }
 
+// YesNo gets the answer to a yes/no question. The options string must
+// contain exactly two characters. The first is for yes (returning true),
+// the second for no (returning false). If one character is upper case,
+// it is the default. The options will be appended to the prompt.
+//   term.YesNo("Exit?", "yN") -> Exit? [yN]
+// It panics if stdin and stdout are not connected to a terminal, if there
+// are more than two characters in options or if both are upper case.
 func YesNo(prompt, options string) (bool, error) {
 	checkIsTerminal()
 	if len(options) != 2 {
@@ -98,6 +114,11 @@ func YesNo(prompt, options string) (bool, error) {
 	return idx == 0, nil
 }
 
+// Select accepts one character from the options string and returns
+// its index within the options. If one character in options is upper case,
+// it is the default.
+// It panics if stdin and stdout are not connected to a terminal or if more
+// than one character are upper case.
 func Select(prompt, options string) (uint, error) {
 	checkIsTerminal()
 	opt := &InputOpt{Limit: 1}
@@ -128,6 +149,11 @@ const (
 	menuOptSep   = ") "
 )
 
+// Menu prints a menu to the screen and returns the index of the selected option
+// within the options slice. If columns is 0, the number of columns will be computed
+// depending on the screen size and the number of options. If title is not "" it will
+// be printed above the menu.
+// It panics if stdin and stdout are not connected to a terminal.
 func Menu(prompt, title string, options []string, columns uint) (uint, error) {
 	checkIsTerminal()
 	width, height := getTermSize()

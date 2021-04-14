@@ -3,7 +3,6 @@
 package term
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"strconv"
@@ -22,11 +21,17 @@ const (
 type EchoMode uint8
 
 const (
-	EchoNormal EchoMode = iota
-	EchoNone
-	EchoMask
+	EchoNormal EchoMode = iota // characters are printed to the screen as typed
+	EchoNone                   // nothing is printed to the screen
+	EchoMask                   // an * is printed to the screen for each character
 )
 
+// GetBytes gets input from a terminal and returns it as a slice of bytes,
+// which does not include the final \n (if any).
+// The echo parameter controls what is printed to the screen.
+// If limit > 0, its the max. number of characters to get; if the number is
+// reached the input will be submitted w/o typing enter.
+// It panics if stdin and stdout are not connected to a terminal.
 func GetBytes(echo EchoMode, limit uint8) ([]byte, error) {
 	checkIsTerminal()
 	result := []byte{}
@@ -115,28 +120,25 @@ func erase(n int, result []byte, echo bool) []byte {
 	return result[:len(result)-n]
 }
 
-func GetRunes(echo EchoMode, limit uint8) ([]rune, error) {
-	b, err := GetBytes(echo, limit)
-	return bytes.Runes(b), err
-}
-
-func GetString(echo EchoMode, limit uint8) (string, error) {
-	b, err := GetBytes(echo, limit)
+// GetLines gets one line of input from a terminal.
+// It panics if stdin and stdout are not connected to a terminal.
+func GetLine() (string, error) {
+	b, err := GetBytes(EchoNormal, 0)
+	os.Stdout.Write([]byte{linefeed})
 	return string(b), err
 }
 
-func GetLine() (string, error) {
-	s, err := GetString(EchoNormal, 0)
-	os.Stdout.Write([]byte{linefeed})
-	return s, err
-}
-
+// GetPassword gets one line of input from a terminal
+// with the input masked with an * character.
+// It panics if stdin and stdout are not connected to a terminal.
 func GetPassword() ([]byte, error) {
 	b, err := GetBytes(EchoMask, 0)
 	os.Stdout.Write([]byte{linefeed})
 	return b, err
 }
 
+// GetChar gets one character from a terminal.
+// It panics if stdin and stdout are not connected to a terminal.
 func GetChar(echo bool) (rune, error) {
 	var mode EchoMode
 	if echo {
@@ -144,13 +146,13 @@ func GetChar(echo bool) (rune, error) {
 	} else {
 		mode = EchoNone
 	}
-	s, err := GetString(mode, 1)
+	b, err := GetBytes(mode, 1)
 	if err != nil {
 		return 0, err
 	}
-	if s == "" {
-		return 0, nil
+	if len(b) == 0 {
+		return linefeed, nil
 	}
-	r, _ := utf8.DecodeRuneInString(s)
+	r, _ := utf8.DecodeRune(b)
 	return r, nil
 }
