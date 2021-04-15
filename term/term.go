@@ -1,4 +1,4 @@
-// +build linux
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris zos
 
 package term
 
@@ -19,7 +19,7 @@ func GetSize(fd uintptr) (uint16, uint16, error) {
 
 // IsTerminal returns whether the file descriptor fd is connected to a terminal.
 func IsTerminal(fd uintptr) bool {
-	_, err := unix.IoctlGetTermios(int(fd), unix.TCGETS)
+	_, err := unix.IoctlGetTermios(int(fd), termiosGet)
 	return err != unix.ENOTTY
 }
 
@@ -33,7 +33,7 @@ func IsTerminal(fd uintptr) bool {
 //   }
 //   defer restore()
 func MakeRaw(fd uintptr) (func() error, error) {
-	termios, err := unix.IoctlGetTermios(int(fd), unix.TCGETS)
+	termios, err := unix.IoctlGetTermios(int(fd), termiosGet)
 	if err != nil {
 		return nil, err
 	}
@@ -52,13 +52,13 @@ func MakeRaw(fd uintptr) (func() error, error) {
 	termios.Lflag &^= unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG | unix.IEXTEN
 	termios.Cflag &^= unix.CSIZE | unix.PARENB
 	termios.Cflag |= unix.CS8
-	err = unix.IoctlSetTermios(int(fd), unix.TCSETS, termios)
+	err = unix.IoctlSetTermios(int(fd), termiosSet, termios)
 	if err != nil {
 		return nil, err
 	}
 
 	return func() error {
-		return unix.IoctlSetTermios(int(fd), unix.TCSETS, &old)
+		return unix.IoctlSetTermios(int(fd), termiosSet, &old)
 	}, nil
 }
 

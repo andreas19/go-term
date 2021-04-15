@@ -1,4 +1,4 @@
-// +build linux
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris zos
 
 package term
 
@@ -36,18 +36,18 @@ func GetBytes(echo EchoMode, limit uint8) ([]byte, error) {
 	checkIsTerminal()
 	result := []byte{}
 	stdoutFd := int(os.Stdout.Fd())
-	termios, err := unix.IoctlGetTermios(stdoutFd, unix.TCGETS)
+	termios, err := unix.IoctlGetTermios(stdoutFd, termiosGet)
 	if err != nil {
 		return result, err
 	}
 	old := *termios
-	defer unix.IoctlSetTermios(stdoutFd, unix.TCSETS, &old)
+	defer unix.IoctlSetTermios(stdoutFd, termiosSet, &old)
 
 	termios.Cc[unix.VMIN] = 1
 	termios.Cc[unix.VTIME] = 0
 	termios.Lflag &^= unix.ECHO | unix.ICANON
 	termios.Oflag |= unix.ICRNL
-	unix.IoctlSetTermios(stdoutFd, unix.TCSETS, termios)
+	unix.IoctlSetTermios(stdoutFd, termiosSet, termios)
 
 	vEof := termios.Cc[unix.VEOF]
 	vErase := termios.Cc[unix.VERASE]
