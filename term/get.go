@@ -46,7 +46,7 @@ func GetBytes(echo EchoMode, limit uint8) ([]byte, error) {
 	termios.Cc[unix.VMIN] = 1
 	termios.Cc[unix.VTIME] = 0
 	termios.Lflag &^= unix.ECHO | unix.ICANON
-	termios.Oflag |= unix.ICRNL
+	termios.Iflag |= unix.ICRNL
 	unix.IoctlSetTermios(stdoutFd, termiosSet, termios)
 
 	vEof := termios.Cc[unix.VEOF]
@@ -112,15 +112,16 @@ loop:
 
 func erase(n int, result []byte, echo bool) []byte {
 	if echo {
-		x := utf8.RuneCount(result[len(result)-n:])
-		os.Stdout.Write([]byte{0x1B, '['})
-		os.Stdout.Write([]byte(strconv.Itoa(x)))
-		os.Stdout.Write([]byte{'D', 0x1B, '[', 'K'})
+		if x := utf8.RuneCount(result[len(result)-n:]); x > 0 {
+			os.Stdout.Write([]byte{0x1B, '['})
+			os.Stdout.Write([]byte(strconv.Itoa(x)))
+			os.Stdout.Write([]byte{'D', 0x1B, '[', 'K'})
+		}
 	}
 	return result[:len(result)-n]
 }
 
-// GetLines gets one line of input from a terminal.
+// GetLine gets one line of input from a terminal.
 // It panics if stdin and stdout are not connected to a terminal.
 func GetLine() (string, error) {
 	b, err := GetBytes(EchoNormal, 0)
