@@ -155,6 +155,20 @@ const (
 // be printed above the menu.
 // It panics if stdin and stdout are not connected to a terminal.
 func Menu(prompt, title string, options []string, columns uint) (uint, error) {
+	return menu(prompt, title, options, columns, &InputOpt{})
+}
+
+// MenuWithDefault does the same as Menu but takes a default value for the index of
+// an option. The value will be ignored if dfltIdx >= len(options).
+func MenuWithDefault(prompt, title string, options []string, columns, dfltIdx uint) (uint, error) {
+	opt := &InputOpt{}
+	if dfltIdx < uint(len(options)) {
+		opt.Default = dfltIdx
+	}
+	return menu(prompt, title, options, columns, opt)
+}
+
+func menu(prompt, title string, options []string, columns uint, opt *InputOpt) (uint, error) {
 	checkIsTerminal()
 	width, height := getTermSize()
 	optCnt := len(options)
@@ -185,7 +199,6 @@ func Menu(prompt, title string, options []string, columns uint) (uint, error) {
 	}
 	fmt.Println()
 	moveCursorUp()
-	opt := &InputOpt{}
 	opt.ConvFunc = func(s string) (interface{}, error) {
 		i, err := strconv.ParseUint(s, 10, 0)
 		if err != nil {
