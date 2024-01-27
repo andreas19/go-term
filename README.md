@@ -1,5 +1,5 @@
 # Go-Term
 
-Functions for dealing with terminals.
+[![Go Reference](https://pkg.go.dev/badge/github.com/andreas19/go-term/term.svg)](https://pkg.go.dev/github.com/andreas19/go-term/term)
 
-For more information see the [documentation](https://pkg.go.dev/github.com/andreas19/go-term/term).
+Functions for dealing with terminals.
